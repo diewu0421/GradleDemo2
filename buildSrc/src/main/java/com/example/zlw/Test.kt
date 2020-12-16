@@ -9,6 +9,6 @@ class Test {
 
     fun test() {
 
-        println("222222")
+        println("22222*********2")
     }
 }
