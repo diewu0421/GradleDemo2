@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#00000000"
     tools:context=".MainActivity">
 
     <TextView
@@ -31,4 +32,19 @@
         android:progress="0"
         android:id="@+id/seekbar"/>
 
+    <EditText
+        android:id="@+id/et"
+        android:layout_width="match_parent"
+        android:layout_height="50dp" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/button"
+        android:text="jump"/>
+
+
+    <com.example.gradledemo.MyView
+        android:layout_width="50dp"
+        android:layout_height="50dp" />
 </androidx.constraintlayout.widget.ConstraintLayout>

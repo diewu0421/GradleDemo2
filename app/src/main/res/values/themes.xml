@@ -13,4 +13,13 @@
         <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
     </style>
+
+    <style name="TransparentTheme" parent="@style/Theme.AppCompat.NoActionBar" >
+        <item name="android:windowBackground">#00000000</item> <!-- 背景色透明度 -->
+        <item name="android:windowNoTitle">true</item><!-- 无标题 -->
+        <item name="android:windowIsTranslucent">true</item><!-- 半透明,设置为false无透明效果 -->
+<!--        <item name="windowNoTitle">true</item>-->
+<!--        <item name="android:backgroundDimEnabled">false</item>&lt;!&ndash; 模糊 &ndash;&gt;-->
+<!--        <item name="android:windowAnimationStyle">@android:style/Animation.Translucent</item> &lt;!&ndash; 窗口样式Dialog &ndash;&gt;-->
+    </style>
 </resources>
