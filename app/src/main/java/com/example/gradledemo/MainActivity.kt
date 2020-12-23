@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        Zenglw()
         throw IndexOutOfBoundsException("exception1111111111")
 
         window.decorView.setBackgroundColor(Color.TRANSPARENT)
