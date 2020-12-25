@@ -46,7 +46,7 @@ class Hotfix {
 
             File(app.getDir("hack", Context.MODE_PRIVATE), "hack.dex")
                 .let { hackFile ->
-                    app.assets.open("hack.dex").copyFile(hackFile.outputStream())
+//                    app.assets.open("hack.dex").copyFile(hackFile.outputStream())
                     // 拿到File添加extraList中
                     arrayListOf(hackFile, File(path))
                 }

@@ -14,6 +14,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.SeekBar
 import androidx.core.content.ContextCompat
+//import com.example.patch_hack.AntilazyLoad
 import dalvik.system.DexClassLoader
 import dalvik.system.PathClassLoader
 import kotlin.concurrent.thread
@@ -23,8 +24,14 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+//        AntilazyLoad()
+        val cls = Class.forName("com.example.patch_hack.AntilazyLoad")
+
+//        println("cls = $cls")
+        val ob = cls.newInstance()
+        cls.getDeclaredMethod("test").invoke(ob)
         Zenglw()
-        throw IndexOutOfBoundsException("exception1111111111")
+//        throw IndexOutOfBoundsException("exception1111111111")
 
         window.decorView.setBackgroundColor(Color.TRANSPARENT)
         window.setBackgroundDrawable(null)

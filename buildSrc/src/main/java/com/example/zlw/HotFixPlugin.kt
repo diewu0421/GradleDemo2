@@ -5,9 +5,14 @@ import com.android.build.gradle.api.ApplicationVariant
 import com.android.utils.FileUtils
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.Task
 import org.objectweb.asm.*
+import shadow.bundletool.com.android.tools.r8.jetbrains.kotlin.io.FilesKt
 import java.io.File
 import java.util.*
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
 
 /**
  * 浙江集商优选电子商务有限公司
@@ -16,9 +21,19 @@ import java.util.*
  * @date 12/14/20 12:34 AM
  */
 class HotFixPlugin : Plugin<Project> {
-    override fun apply(project: Project) {
-        val patch = project.extensions.create("patch", PatchExtensions::class.java)
+    private lateinit var mProject: Project
+    private var mHackJarFile: File? = null
+    private val tempDir by lazy {
+       "${mProject.buildDir}/tempDir"
+    }
 
+    override fun apply(project: Project) {
+        this.mProject = project
+        val patch = project.extensions.create("patch", PatchExtensions::class.java)
+        val parentdir = File("${mProject.buildDir}/tmp/kotlin-classes/debug/com/example/gradledemo")
+        if (!parentdir.exists()) {
+            parentdir.mkdirs()
+        }
         project.afterEvaluate { it ->
             println("project  =================  ${patch.name}")
             val appExtension = it.extensions.findByType(AppExtension::class.java) as AppExtension
@@ -39,81 +54,117 @@ class HotFixPlugin : Plugin<Project> {
 
                         }
                         .takeIf { it == "Debug" }
-                        ?.let { name -> project.tasks.findByName("minify${name}WithR8") }
-                        ?.doFirst { task ->
+                        ?.let { name ->
+                            val patchHackPath = ":patch-hack:compileDebugKotlin"
 
-                            task.outputs.files.files.forEach { file ->
-                                if (file.name.endsWith("mapping.txt")) {
-                                    project.logger.error("备份mapping文件")
-                                    if (file.exists()) {
-                                        FileUtils.copyFile(file, File(outputDir, "mapping.txt"))
+                            val patchtask = project.tasks.findByPath(patchHackPath)?.also { task ->
+//                                task.mustRunAfter = arrayOf(":app:minify${name}WithR8")
+//                                task.setMustRunAfter(mutableListOf(":app:minify${name}WithR8"))
+                                task.doLast {
+
+                                    task.outputs.files.files.forEach {
+                                        generateHackJar(it)
                                     }
                                 }
+                                task.doFirst {
+                                }
                             }
-                            task.inputs.files.files.forEach {
-                                handleFile(it, applicationVariant)
+
+                            project.tasks.findByName("compile${name}Kotlin")?.let {task ->
+                                // 必须要让patch_task任务优先执行
+                                task.setDependsOn(mutableListOf(patchtask))
+                                task.doLast {
+                                    mHackJarFile?.copyTo(File("${mProject.buildDir}/tmp/kotlin-classes/${applicationVariant.name}/com/example/gradledemo", mHackJarFile?.name ?: "AntiLazyLoad.class"))
+//                                    mHackJarFile?.delete()
+                                    println("compileDebugKotlin 拷贝文件成功")
+                                }
+                            }
+
+                            val minifyTask = project.tasks.findByName("minify${name}WithR8")
+                            minifyTask?.doFirst { task ->
+
+//                                if (mHackJarFile != null && mHackJarFile?.exists() == true) {
+//                                    println("添加文件到头部 \n${task.outputs.files.files}")
+//                                } else {
+//
+//                                    println("file is not exists.")
+//                                }
+                                task.outputs.files.files.forEach { file ->
+                                    if (file.name.endsWith("mapping.txt")) {
+                                        project.logger.error("备份mapping文件")
+                                        if (file.exists()) {
+                                            FileUtils.copyFile(file, File(outputDir, "mapping.txt"))
+                                        }
+                                    }
+                                }
+//                                task.inputs.files.files.add(File())
+                                task.inputs.files.files.forEach {
+                                    handleFile(it, applicationVariant)
+                                }
                             }
                         }
-//                    it.tasks.findByName("compile${name}JavaWithJavac")?.let { task ->
-//                        task.doLast {
-//                            it.inputs.files.files.forEach {
-//                                println(it.absolutePath)
-//                            }
-////                            println("inputs ${it.inputs.files.files}")
-////                            println("outputs ${it.outputs.files.files}")
-//                            task.outputs.files.files.forEach { file ->
-////                                file.readText()
-//                                when {
-//                                    file.absolutePath.endsWith(".jar") -> {
-//
-//
-//                                    }
-//                                    file.absolutePath.endsWith(".class") -> {
-//
-//                                    }
-//
-//                                }
-//
-//                            }
-//                        }
-//                    }
-//                    println("find task ${it.tasks.findByName("compile${name}Kotlin")}")
-//                    it.tasks.findByName("compile${name}Kotlin")?.let {task ->
-//                        task.doLast {
-//                            it.inputs.files.files.forEach {
-//                                println(it.absolutePath)
-//                            }
-////                            println("kotlin compile ${task.inputs.files.files}")
-////                            println("kotlin compile ${task.outputs.files.files}")
-//
-//                        }
-//                    }
-//                    it.tasks.findByName("assemble${name}")?.let {task ->
-//                        task.doLast {
-//                            println("asdfaffffffffffffffffffffffff")
-//                            it.inputs.files.files.forEach {
-//                                println(it.absolutePath)
-//                            }
-////                            println("kotlin compile ${task.inputs.files.files}")
-////                            println("kotlin compile ${task.outputs.files.files}")
-//
-//                        }
-//                    }
                 }
-
-//                    println("gradle version ==============+${project.gradle.gradleVersion}")
-//                    it.tasks.findByName("minify${name}WithR8")?.let {task ->
-//                        task.doLast {
-//                           it.outputs.files.files.forEach {file ->
-//                               println("file ========== ${file.absolutePath}")
-//                           }
-//                        }
-//                    }
             }
         }
 
+        project.gradle.buildFinished {
+            println("finish delete file")
+//            mHackJarFile?.takeIf { it.exists() }?.delete()
+        }
 
     }
+
+    private fun generateHackJar(file: File) {
+        if (file.isDirectory) {
+            file.listFiles().forEach {
+                generateHackJar(it)
+            }
+        } else if (file.name.contains("AntilazyLoad")) {
+//            "${System.getProperty("user.home")}/Desktop/hack.jar".toFile().outputStream().write(file.inputStream().read())
+
+            val homeDir = System.getProperty("user.home")
+
+            val outputDir = "${System.getProperty("user.home")}/Desktop/hack.dex"
+            val dxPath = "${System.getenv("ANDROID_HOME")}/build-tools/29.0.2/dx"
+
+            val jarOutDir = "${System.getProperty("user.home")}/Desktop/hack.jar"
+
+            JarOutputStream(jarOutDir.toFile().outputStream()).run {
+
+                putNextEntry(
+                    JarEntry(file.path.substringAfterLast("debug").substring(1))
+                )
+                write(file.readBytes())
+                closeEntry()
+                close()
+            }
+            Runtime.getRuntime().exec("""$dxPath --dex --output=$outputDir $jarOutDir""").run {
+                waitFor()
+                if (exitValue() != 0) {
+                    mProject.logger.error("打dex包失败")
+                }
+            }
+
+//            mHackJarFile = jarOutDir.toFile()
+            File(tempDir).apply {
+                takeIf { !it.exists() }?.mkdirs()
+                mHackJarFile = File(this, file.name)
+                file.copyTo(mHackJarFile!!)
+                file.delete()
+            }
+
+//            val parentdir = File("${mProject.buildDir}/tmp/kotlin-classes/debug/com/example/gradledemo")
+//            if (!parentdir.exists()) {
+//                parentdir.mkdirs()
+//            }
+//            file.copyTo(File(parentdir, file.name))
+//            file.copyTo(File("${homeDir}/Desktop", file.name))
+
+            println("success 打包成功")
+        }
+    }
+
+    private fun String.toFile() = File(this)
 
     private fun handleFile(file: File, applicationVariant: ApplicationVariant) {
         when {
@@ -132,7 +183,7 @@ class HotFixPlugin : Plugin<Project> {
     }
 
     private fun processClass(file: File) {
-        if (file.path.contains("Zenglwasdfafasdf")) {
+        if (true) {
 
             val cr = ClassReader(file.inputStream())
             val cw = ClassWriter(cr, 0)
@@ -156,7 +207,7 @@ class HotFixPlugin : Plugin<Project> {
                     methodVisitor = object : MethodVisitor(api, methodVisitor) {
                         override fun visitInsn(opcode: Int) {
                             if ("<init>" == name && opcode == Opcodes.RETURN) {
-                                super.visitLdcInsn(Type.getType("Lcom/enjoy/patch/hack/AntilazyLoad;"))
+                                super.visitLdcInsn(Type.getType("Lcom/example/patch_hack/AntilazyLoad;"))
                             }
                             super.visitInsn(opcode)
 

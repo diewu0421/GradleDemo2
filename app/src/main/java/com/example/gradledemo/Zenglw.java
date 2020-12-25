@@ -9,6 +9,5 @@ package com.example.gradledemo;
 
 class Zenglw {
     public void zenglw() {
-
     }
 }
