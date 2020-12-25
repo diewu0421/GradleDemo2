@@ -7,7 +7,6 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.objectweb.asm.*
-import shadow.bundletool.com.android.tools.r8.jetbrains.kotlin.io.FilesKt
 import java.io.File
 import java.util.*
 import java.util.jar.JarEntry
@@ -58,8 +57,6 @@ class HotFixPlugin : Plugin<Project> {
                             val patchHackPath = ":patch-hack:compileDebugKotlin"
 
                             val patchtask = project.tasks.findByPath(patchHackPath)?.also { task ->
-//                                task.mustRunAfter = arrayOf(":app:minify${name}WithR8")
-//                                task.setMustRunAfter(mutableListOf(":app:minify${name}WithR8"))
                                 task.doLast {
 
                                     task.outputs.files.files.forEach {
@@ -82,13 +79,6 @@ class HotFixPlugin : Plugin<Project> {
 
                             val minifyTask = project.tasks.findByName("minify${name}WithR8")
                             minifyTask?.doFirst { task ->
-
-//                                if (mHackJarFile != null && mHackJarFile?.exists() == true) {
-//                                    println("添加文件到头部 \n${task.outputs.files.files}")
-//                                } else {
-//
-//                                    println("file is not exists.")
-//                                }
                                 task.outputs.files.files.forEach { file ->
                                     if (file.name.endsWith("mapping.txt")) {
                                         project.logger.error("备份mapping文件")
@@ -97,7 +87,6 @@ class HotFixPlugin : Plugin<Project> {
                                         }
                                     }
                                 }
-//                                task.inputs.files.files.add(File())
                                 task.inputs.files.files.forEach {
                                     handleFile(it, applicationVariant)
                                 }
@@ -105,11 +94,6 @@ class HotFixPlugin : Plugin<Project> {
                         }
                 }
             }
-        }
-
-        project.gradle.buildFinished {
-            println("finish delete file")
-//            mHackJarFile?.takeIf { it.exists() }?.delete()
         }
 
     }
@@ -120,7 +104,6 @@ class HotFixPlugin : Plugin<Project> {
                 generateHackJar(it)
             }
         } else if (file.name.contains("AntilazyLoad")) {
-//            "${System.getProperty("user.home")}/Desktop/hack.jar".toFile().outputStream().write(file.inputStream().read())
 
             val homeDir = System.getProperty("user.home")
 
@@ -145,21 +128,12 @@ class HotFixPlugin : Plugin<Project> {
                 }
             }
 
-//            mHackJarFile = jarOutDir.toFile()
             File(tempDir).apply {
                 takeIf { !it.exists() }?.mkdirs()
                 mHackJarFile = File(this, file.name)
                 file.copyTo(mHackJarFile!!)
                 file.delete()
             }
-
-//            val parentdir = File("${mProject.buildDir}/tmp/kotlin-classes/debug/com/example/gradledemo")
-//            if (!parentdir.exists()) {
-//                parentdir.mkdirs()
-//            }
-//            file.copyTo(File(parentdir, file.name))
-//            file.copyTo(File("${homeDir}/Desktop", file.name))
-
             println("success 打包成功")
         }
     }
@@ -183,62 +157,46 @@ class HotFixPlugin : Plugin<Project> {
     }
 
     private fun processClass(file: File) {
-        if (true) {
 
-            val cr = ClassReader(file.inputStream())
-            val cw = ClassWriter(cr, 0)
+        val cr = ClassReader(file.inputStream())
+        val cw = ClassWriter(cr, 0)
 
-            val cVisitor = object : ClassVisitor(Opcodes.ASM5, cw) {
+        val cVisitor = object : ClassVisitor(Opcodes.ASM5, cw) {
 
-                override fun visitMethod(
-                    access: Int,
-                    name: String?,
-                    descriptor: String?,
-                    signature: String?,
-                    exceptions: Array<out String>?
-                ): MethodVisitor {
-                    var methodVisitor = super.visitMethod(
-                        access,
-                        name,
-                        descriptor,
-                        signature,
-                        exceptions
-                    )
-                    methodVisitor = object : MethodVisitor(api, methodVisitor) {
-                        override fun visitInsn(opcode: Int) {
-                            if ("<init>" == name && opcode == Opcodes.RETURN) {
-                                super.visitLdcInsn(Type.getType("Lcom/example/patch_hack/AntilazyLoad;"))
-                            }
-                            super.visitInsn(opcode)
-
+            override fun visitMethod(
+                access: Int,
+                name: String?,
+                descriptor: String?,
+                signature: String?,
+                exceptions: Array<out String>?
+            ): MethodVisitor {
+                var methodVisitor = super.visitMethod(
+                    access,
+                    name,
+                    descriptor,
+                    signature,
+                    exceptions
+                )
+                methodVisitor = object : MethodVisitor(api, methodVisitor) {
+                    override fun visitInsn(opcode: Int) {
+                        if ("<init>" == name && opcode == Opcodes.RETURN) {
+                            super.visitLdcInsn(Type.getType("Lcom/example/patch_hack/AntilazyLoad;"))
                         }
+                        super.visitInsn(opcode)
+
                     }
-                    return methodVisitor
                 }
+                return methodVisitor
             }
-            cr.accept(cVisitor, 0)
-            val newByte = cw.toByteArray()
-            file.outputStream().write(newByte)
-
-        } else {
-
         }
-//        file.outputStream().write(byteArrayOf(0, 1))
+        cr.accept(cVisitor, 0)
+        val newByte = cw.toByteArray()
+        file.outputStream().write(newByte)
 
-//        if (file.name.contains("MainActivity")) {
-//           file.delete()
-//        }
     }
 
     private fun processJar(file: File) {
 
     }
 
-    private fun handleClass() {
-
-    }
-
-    private fun handleJar() {
-
-    }
 }
